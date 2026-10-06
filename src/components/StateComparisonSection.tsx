@@ -22,10 +22,11 @@ interface StateComparisonSectionProps {
 
 export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ onSelectState }) => {
   // Initial states to compare: Tamil Nadu, Kerala, Maharashtra, Delhi
-  const [selectedStateCodes, setSelectedStateCodes] = useState<string[]>(['TN', 'KL', 'MH', 'DL']);
+  const [selectedStateCodes, setSelectedStateCodes] = useState<string[]>(['TN', 'KL', 'MH', 'DL', 'KA']);
   const [comparisonItems, setComparisonItems] = useState<StateComparisonItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedToAdd, setSelectedToAdd] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'risk' | 'temp' | 'rain' | 'aqi'>('risk');
 
   const loadComparisonData = async (codes: string[]) => {
     setIsLoading(true);
@@ -46,6 +47,7 @@ export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ 
           riskScore: payload.prediction.riskScore,
           riskLevel: payload.prediction.riskLevel,
           condition: payload.current.condition,
+          aqi: payload.airQuality?.aqi ?? 75,
         } as StateComparisonItem;
       } catch (e: any) {
         return {
@@ -59,6 +61,7 @@ export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ 
           riskScore: 20,
           riskLevel: 'Low Risk' as RiskLevel,
           condition: { code: 0, label: 'Clear Sky', description: 'Sunny', icon: 'Sun', category: 'clear' as const },
+          aqi: 60,
           error: 'Weather data unavailable',
         } as StateComparisonItem;
       }
@@ -72,6 +75,7 @@ export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ 
   useEffect(() => {
     loadComparisonData(selectedStateCodes);
   }, [selectedStateCodes]);
+
 
   const handleAddState = (code: string) => {
     if (!code || selectedStateCodes.includes(code)) return;
@@ -109,8 +113,23 @@ export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ 
           </div>
         </div>
 
-        {/* Add State dropdown & reload */}
-        <div className="flex items-center gap-2">
+        {/* Add State dropdown, sort & reload */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sort By Dropdown */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 font-semibold focus:outline-none focus:border-cyan-500"
+            >
+              <option value="risk">Risk Score (Highest First)</option>
+              <option value="temp">Temperature</option>
+              <option value="rain">24h Rainfall</option>
+              <option value="aqi">Air Quality (AQI)</option>
+            </select>
+          </div>
+
           <select
             value={selectedToAdd}
             onChange={(e) => handleAddState(e.target.value)}
@@ -142,7 +161,15 @@ export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ 
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {comparisonItems.map((item) => (
+          {[...comparisonItems]
+            .sort((a, b) => {
+              if (sortBy === 'risk') return b.riskScore - a.riskScore;
+              if (sortBy === 'temp') return b.currentTemp - a.currentTemp;
+              if (sortBy === 'rain') return b.precipitation24h - a.precipitation24h;
+              if (sortBy === 'aqi') return (b.aqi ?? 0) - (a.aqi ?? 0);
+              return 0;
+            })
+            .map((item) => (
             <div
               key={item.state.code}
               className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all relative flex flex-col justify-between group"
@@ -182,10 +209,17 @@ export const StateComparisonSection: React.FC<StateComparisonSectionProps> = ({ 
                   </div>
                 </div>
 
-                {/* Condition row */}
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 mb-3 text-xs">
-                  <WeatherIcon iconName={item.condition.icon} size={20} />
-                  <span className="font-medium text-slate-300 truncate">{item.condition.label}</span>
+                {/* Condition row & AQI pill */}
+                <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 mb-3 text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <WeatherIcon iconName={item.condition.icon} size={20} />
+                    <span className="font-medium text-slate-300 truncate">{item.condition.label}</span>
+                  </div>
+                  {item.aqi && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-400 border border-teal-500/30 shrink-0">
+                      AQI {item.aqi}
+                    </span>
+                  )}
                 </div>
 
                 {/* Metric comparisons */}

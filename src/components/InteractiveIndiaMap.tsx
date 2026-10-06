@@ -32,7 +32,7 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
   const geoJsonLayerRef = useRef<L.GeoJSON | null>(null);
   const stateMarkersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  const [mapMode, setMapMode] = useState<'risk' | 'rainfall' | 'temp'>('risk');
+  const [mapMode, setMapMode] = useState<'risk' | 'rainfall' | 'temp' | 'aqi'>('risk');
   const [geoData, setGeoData] = useState<any>(null);
   const [isLoadingGeo, setIsLoadingGeo] = useState<boolean>(true);
 
@@ -148,6 +148,12 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
       if (rain >= 15) return '#06b6d4'; // Cyan
       if (rain >= 5) return '#38bdf8';  // Sky
       return '#334155'; // Slate
+    } else if (mapMode === 'aqi') {
+      const lat = matched?.lat ?? 20;
+      const isGangetic = lat >= 24 && lat <= 30;
+      if (isGangetic) return '#f97316'; // Orange / Elevated
+      if (lat < 16) return '#10b981';   // Emerald / Good
+      return '#06b6d4'; // Cyan / Moderate
     } else {
       // Temperature
       const temp = stateSummary?.temp ?? (32 - ((matched?.lat || 20) - 10) * 0.7);
@@ -157,6 +163,7 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
       return '#0284c7'; // Cool Blue
     }
   };
+
 
   // Render GeoJSON Boundaries and State Pin Markers
   useEffect(() => {
@@ -392,6 +399,17 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
           >
             Temperature
           </button>
+          <button
+            onClick={() => setMapMode('aqi')}
+            className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1 ${
+              mapMode === 'aqi'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Air Quality</span>
+            <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-400/20 text-cyan-300">v2</span>
+          </button>
         </div>
       </div>
 
@@ -470,7 +488,7 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
       <div className="mt-3.5 pt-3 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
         <div className="flex items-center gap-4 flex-wrap">
           <span className="font-semibold text-slate-300 text-[11px] uppercase tracking-wider">
-            {mapMode === 'risk' ? 'Risk Scale:' : mapMode === 'rainfall' ? 'Rainfall Scale:' : 'Temp Scale:'}
+            {mapMode === 'risk' ? 'Risk Scale:' : mapMode === 'rainfall' ? 'Rainfall Scale:' : mapMode === 'aqi' ? 'Air Quality Scale:' : 'Temp Scale:'}
           </span>
 
           {mapMode === 'risk' ? (
@@ -501,6 +519,21 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-sm bg-blue-600"></span> Heavy (35mm+)
+              </span>
+            </div>
+          ) : mapMode === 'aqi' ? (
+            <div className="flex items-center gap-3 text-[11px]">
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> Good (0-50)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-cyan-400"></span> Moderate (51-100)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> Sensitive (101-150)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-orange-500"></span> Unhealthy (151-200)
               </span>
             </div>
           ) : (

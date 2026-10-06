@@ -4,10 +4,14 @@ import { INDIAN_STATES, DEFAULT_STATE } from './data/stateData';
 import { fetchWeatherData } from './services/weatherService';
 import { reverseGeocodeIndia, SearchResult } from './services/geoService';
 
-import { Navbar } from './components/Navbar';
+import { Navbar, DashboardTab } from './components/Navbar';
 import { StateChipsBar } from './components/StateChipsBar';
 import { CurrentWeatherCard } from './components/CurrentWeatherCard';
 import { PredictionCard } from './components/PredictionCard';
+import { HourlyTimelineScrubber } from './components/HourlyTimelineScrubber';
+import { AirQualitySection } from './components/AirQualitySection';
+import { ExtremeAlertsSection } from './components/ExtremeAlertsSection';
+import { ClimateSimulatorSection } from './components/ClimateSimulatorSection';
 import { RainfallPredictionSection } from './components/RainfallPredictionSection';
 import { TempHumidityCharts } from './components/TempHumidityCharts';
 import { InteractiveIndiaMap } from './components/InteractiveIndiaMap';
@@ -15,6 +19,8 @@ import { StateComparisonSection } from './components/StateComparisonSection';
 import { SearchModal } from './components/SearchModal';
 import { AboutPredictionModal } from './components/AboutPredictionModal';
 import { DataSourceModal } from './components/DataSourceModal';
+import { AIBriefingModal } from './components/AIBriefingModal';
+import { ExportDossierModal } from './components/ExportDossierModal';
 
 import {
   AlertTriangle,
@@ -25,6 +31,10 @@ import {
   ExternalLink,
   Heart,
   Radio,
+  Wind,
+  Sparkles,
+  Bot,
+  FileDown,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -40,10 +50,16 @@ export const App: React.FC = () => {
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Version 2.0 User Preferences & Navigation Modes
+  const [tempUnit, setTempUnit] = useState<'C' | 'F'>('C');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+
   // Modals
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
   const [isDataSourcesOpen, setIsDataSourcesOpen] = useState<boolean>(false);
+  const [isAIBriefingOpen, setIsAIBriefingOpen] = useState<boolean>(false);
+  const [isExportDossierOpen, setIsExportDossierOpen] = useState<boolean>(false);
 
   // Background map risk cache for all states
   const [stateRiskMap, setStateRiskMap] = useState<
@@ -99,7 +115,7 @@ export const App: React.FC = () => {
     loadWeatherData(selectedState.lat, selectedState.lon, selectedState.capital, selectedState.name);
   }, [selectedState, loadWeatherData]);
 
-  // Periodic Auto-Refresh every 10 minutes (Section 13)
+  // Periodic Auto-Refresh every 10 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       if (weatherData) {
@@ -116,7 +132,19 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [weatherData, loadWeatherData]);
 
-  // Handle State Selection from Map, Chips, or Comparison
+  // Keyboard shortcut (⌘K or Ctrl+K) for Search Modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Handle State Selection
   const handleSelectState = (state: StateInfo) => {
     setSelectedState(state);
     setCurrentLocationTitle({ name: state.capital, state: state.name });
@@ -125,7 +153,6 @@ export const App: React.FC = () => {
 
   // Handle Search Result Selection
   const handleSelectSearchResult = (result: SearchResult) => {
-    // If it's a state, match state object
     const matchedState = INDIAN_STATES.find(
       (s) => s.name.toLowerCase() === result.name.toLowerCase() || (result.state && s.name.toLowerCase() === result.state.toLowerCase())
     );
@@ -153,7 +180,6 @@ export const App: React.FC = () => {
           const detected = await reverseGeocodeIndia(latitude, longitude);
           setCurrentLocationTitle(detected);
 
-          // Find if belongs to Indian state
           if (detected.state) {
             const matchedState = INDIAN_STATES.find((s) => s.name.toLowerCase().includes(detected.state!.toLowerCase()));
             if (matchedState) setSelectedState(matchedState);
@@ -186,18 +212,27 @@ export const App: React.FC = () => {
     );
   };
 
+  const alertCount = weatherData?.alerts?.filter((a) => a.severity !== 'green').length || 0;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
-      {/* Top Navigation */}
+      {/* Top Navigation Bar with v2 Tabs & Controls */}
       <Navbar
         onOpenSearch={() => setIsSearchOpen(true)}
         onLocateMe={handleLocateMe}
         onRefresh={handleRefresh}
         onOpenAbout={() => setIsAboutOpen(true)}
         onOpenDataSources={() => setIsDataSourcesOpen(true)}
+        onOpenAIBriefing={() => setIsAIBriefingOpen(true)}
+        onOpenExportDossier={() => setIsExportDossierOpen(true)}
         isLocating={isLocating}
         isRefreshing={isRefreshing}
         lastUpdated={weatherData?.lastUpdated || ''}
+        tempUnit={tempUnit}
+        onToggleUnit={() => setTempUnit((prev) => (prev === 'C' ? 'F' : 'C'))}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        alertCount={alertCount}
       />
 
       {/* Horizontal State Chips Selector */}
@@ -234,10 +269,10 @@ export const App: React.FC = () => {
             </div>
             <div className="text-center">
               <p className="text-sm font-semibold text-slate-200">
-                Contacting Real-Time Numerical Weather Prediction Feeds...
+                Contacting Real-Time Numerical Weather Prediction & Satellite Feeds...
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Executing feature extraction and mathematical risk indexing for {currentLocationTitle.name}
+                Executing feature extraction, AQI indexing, and mathematical risk modeling for {currentLocationTitle.name}
               </p>
             </div>
           </div>
@@ -246,12 +281,12 @@ export const App: React.FC = () => {
         {/* Loaded Content */}
         {weatherData && (
           <div className="space-y-6 animate-fadeIn">
-            {/* Active State & Coordinate Meteorological Sync Bar */}
+            {/* Active Region Status & Quick Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs shadow-md">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1.5 font-medium text-slate-300">
                   <span className={`w-2 h-2 rounded-full ${isLoading || isRefreshing ? 'bg-amber-400 animate-spin' : 'bg-cyan-400 animate-pulse'}`}></span>
-                  Active Region: <strong className="text-white font-bold">{selectedState.name}</strong>
+                  Region: <strong className="text-white font-bold">{selectedState.name}</strong>
                   <span className="text-slate-400">({selectedState.capital})</span>
                 </span>
                 <span className="text-slate-600 hidden sm:inline">•</span>
@@ -260,51 +295,174 @@ export const App: React.FC = () => {
                   <span className="font-semibold">{selectedState.lat.toFixed(4)}° N, {selectedState.lon.toFixed(4)}° E</span>
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                <span className="font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+
+              <div className="flex items-center gap-2 text-slate-400 text-[11px] flex-wrap">
+                {weatherData.airQuality && (
+                  <button
+                    onClick={() => setActiveTab('air-quality')}
+                    className="font-mono px-2 py-0.5 rounded border text-[10px] flex items-center gap-1 hover:brightness-110 transition-all"
+                    style={{
+                      backgroundColor: `${weatherData.airQuality.color}15`,
+                      color: weatherData.airQuality.color,
+                      borderColor: `${weatherData.airQuality.color}40`,
+                    }}
+                  >
+                    <Wind className="w-3 h-3" />
+                    <span>AQI {weatherData.airQuality.aqi} ({weatherData.airQuality.category})</span>
+                  </button>
+                )}
+
+                <span className="font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  Real-Time Weather API Synced
+                  Open-Meteo NWP Synced
                 </span>
               </div>
             </div>
 
-            {/* Row 1: Current Weather Card & Prediction / Risk Card */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-6 xl:col-span-7">
-                <CurrentWeatherCard data={weatherData} selectedStateName={selectedState.name} />
+            {/* TAB: OVERVIEW (Full Executive Command Center) */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {/* 24-Hour Interactive Timeline Scrubber (v2 Feature) */}
+                <HourlyTimelineScrubber hourly={weatherData.hourly} tempUnit={tempUnit} />
+
+                {/* Row 1: Current Weather Card & Prediction / Risk Card */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-6 xl:col-span-7">
+                    <CurrentWeatherCard
+                      data={weatherData}
+                      selectedStateName={selectedState.name}
+                      tempUnit={tempUnit}
+                      onOpenAQI={() => setActiveTab('air-quality')}
+                    />
+                  </div>
+                  <div className="lg:col-span-6 xl:col-span-5">
+                    <PredictionCard
+                      prediction={weatherData.prediction}
+                      onOpenModelDetails={() => setIsAboutOpen(true)}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: Air Quality Hub & IMD Extreme Weather Alerts (v2 Highlights) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-6">
+                    <AirQualitySection airQuality={weatherData.airQuality} locationName={selectedState.name} />
+                  </div>
+                  <div className="lg:col-span-6">
+                    <ExtremeAlertsSection alerts={weatherData.alerts} locationName={selectedState.name} data={weatherData} />
+                  </div>
+                </div>
+
+                {/* Row 3: Rainfall Prediction Modeling & Temperature/Humidity Dynamics */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-6">
+                    <RainfallPredictionSection data={weatherData} />
+                  </div>
+                  <div className="lg:col-span-6">
+                    <TempHumidityCharts data={weatherData} />
+                  </div>
+                </div>
+
+                {/* Row 4: Climate Simulator Sandbox (v2 Feature) */}
+                <div>
+                  <ClimateSimulatorSection data={weatherData} />
+                </div>
+
+                {/* Row 5: Interactive Leaflet India Map */}
+                <div>
+                  <InteractiveIndiaMap
+                    selectedState={selectedState}
+                    onSelectState={handleSelectState}
+                    stateRiskMap={stateRiskMap}
+                    isWeatherLoading={isLoading || isRefreshing}
+                  />
+                </div>
+
+                {/* Row 6: Cross-State Meteorological Comparison */}
+                <div>
+                  <StateComparisonSection onSelectState={handleSelectState} />
+                </div>
               </div>
-              <div className="lg:col-span-6 xl:col-span-5">
-                <PredictionCard
-                  prediction={weatherData.prediction}
-                  onOpenModelDetails={() => setIsAboutOpen(true)}
+            )}
+
+            {/* TAB: AIR QUALITY (Dedicated AQI Hub) */}
+            {activeTab === 'air-quality' && (
+              <div className="space-y-6 animate-fadeIn">
+                <AirQualitySection airQuality={weatherData.airQuality} locationName={selectedState.name} />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-6">
+                    <ExtremeAlertsSection alerts={weatherData.alerts} locationName={selectedState.name} data={weatherData} />
+                  </div>
+                  <div className="lg:col-span-6">
+                    <CurrentWeatherCard
+                      data={weatherData}
+                      selectedStateName={selectedState.name}
+                      tempUnit={tempUnit}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: IMD ALERTS (Dedicated Extreme Weather Warning Center) */}
+            {activeTab === 'alerts' && (
+              <div className="space-y-6 animate-fadeIn">
+                <ExtremeAlertsSection alerts={weatherData.alerts} locationName={selectedState.name} data={weatherData} />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-6">
+                    <PredictionCard
+                      prediction={weatherData.prediction}
+                      onOpenModelDetails={() => setIsAboutOpen(true)}
+                    />
+                  </div>
+                  <div className="lg:col-span-6">
+                    <RainfallPredictionSection data={weatherData} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: SIMULATOR (Dedicated What-If Climate Sandbox) */}
+            {activeTab === 'simulator' && (
+              <div className="space-y-6 animate-fadeIn">
+                <ClimateSimulatorSection data={weatherData} />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-6">
+                    <PredictionCard
+                      prediction={weatherData.prediction}
+                      onOpenModelDetails={() => setIsAboutOpen(true)}
+                    />
+                  </div>
+                  <div className="lg:col-span-6">
+                    <CurrentWeatherCard
+                      data={weatherData}
+                      selectedStateName={selectedState.name}
+                      tempUnit={tempUnit}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: GIS MAP (Dedicated Full-Height Geospatial Radar) */}
+            {activeTab === 'map' && (
+              <div className="space-y-6 animate-fadeIn">
+                <InteractiveIndiaMap
+                  selectedState={selectedState}
+                  onSelectState={handleSelectState}
+                  stateRiskMap={stateRiskMap}
+                  isWeatherLoading={isLoading || isRefreshing}
                 />
+                <StateComparisonSection onSelectState={handleSelectState} />
               </div>
-            </div>
+            )}
 
-            {/* Row 2: Rainfall Prediction Modeling & Temperature/Humidity Dynamics */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-6">
-                <RainfallPredictionSection data={weatherData} />
+            {/* TAB: COMPARISON (Dedicated Cross-State Matrix) */}
+            {activeTab === 'comparison' && (
+              <div className="space-y-6 animate-fadeIn">
+                <StateComparisonSection onSelectState={handleSelectState} />
               </div>
-              <div className="lg:col-span-6">
-                <TempHumidityCharts data={weatherData} />
-              </div>
-            </div>
-
-            {/* Row 3: Interactive Leaflet India Map */}
-            <div>
-              <InteractiveIndiaMap
-                selectedState={selectedState}
-                onSelectState={handleSelectState}
-                stateRiskMap={stateRiskMap}
-                isWeatherLoading={isLoading || isRefreshing}
-              />
-            </div>
-
-            {/* Row 4: Cross-State Meteorological Comparison */}
-            <div>
-              <StateComparisonSection onSelectState={handleSelectState} />
-            </div>
+            )}
           </div>
         )}
       </main>
@@ -317,39 +475,58 @@ export const App: React.FC = () => {
       />
       <AboutPredictionModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
       <DataSourceModal isOpen={isDataSourcesOpen} onClose={() => setIsDataSourcesOpen(false)} />
+      <AIBriefingModal isOpen={isAIBriefingOpen} onClose={() => setIsAIBriefingOpen(false)} data={weatherData} />
+      <ExportDossierModal isOpen={isExportDossierOpen} onClose={() => setIsExportDossierOpen(false)} data={weatherData} />
 
-      {/* Footer */}
+      {/* Version 2.0 Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-8 px-4 sm:px-6 lg:px-8 mt-12 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-slate-400 font-semibold mb-1">
-              <span>India Weather Intelligence & Risk Analytics Platform</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 font-mono">
-                v1.0.0
+              <span>India Weather Intelligence & Atmospheric Risk Platform</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-mono border border-cyan-500/30 font-bold">
+                v2.0.0 ULTRA
               </span>
             </div>
             <p className="text-[11px] text-slate-500 max-w-xl">
-              High-resolution numerical weather prediction (NWP) model feeds, real-time feature extraction, and explainable multi-vector atmospheric risk prediction for Indian regions.
+              ECMWF / DWD ICON High-Resolution Numerical Weather Prediction, Real-Time Continuous Air Quality (AQI), IMD-Compliant Early Warning System, and Explainable Multi-Vector Atmospheric Risk Indexing.
             </p>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex items-center gap-4 text-[11px] flex-wrap">
+            <button
+              onClick={() => setIsAIBriefingOpen(true)}
+              className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
+            >
+              <Bot className="w-3.5 h-3.5" />
+              <span>Voice Dispatch</span>
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => setIsExportDossierOpen(true)}
+              className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              <span>Export Dossier</span>
+            </button>
+            <span>•</span>
             <button
               onClick={() => setIsAboutOpen(true)}
               className="hover:text-cyan-400 transition-colors"
             >
-              Risk Model Formula
+              Risk Formula
             </button>
             <span>•</span>
             <button
               onClick={() => setIsDataSourcesOpen(true)}
               className="hover:text-cyan-400 transition-colors"
             >
-              Data Providers
+              Providers
             </button>
             <span>•</span>
-            <span className="text-slate-600 font-mono">
-              Status: Operational
+            <span className="text-emerald-400 font-mono flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              All Systems Operational
             </span>
           </div>
         </div>

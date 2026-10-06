@@ -102,6 +102,53 @@ export interface StateInfo {
   majorCities: string[];
 }
 
+export type AirQualityCategory =
+  | 'Good'
+  | 'Moderate'
+  | 'Unhealthy for Sensitive Groups'
+  | 'Unhealthy'
+  | 'Very Unhealthy'
+  | 'Hazardous';
+
+export interface AirQualityData {
+  aqi: number; // US AQI standard (0 - 500)
+  category: AirQualityCategory;
+  pm25: number; // Particulate Matter 2.5 µg/m³
+  pm10: number; // Particulate Matter 10 µg/m³
+  no2: number;  // Nitrogen Dioxide µg/m³
+  so2: number;  // Sulphur Dioxide µg/m³
+  co: number;   // Carbon Monoxide µg/m³
+  o3: number;   // Surface Ozone µg/m³
+  color: string;
+  dominantPollutant: string;
+  advice: {
+    general: string;
+    sensitiveGroups: string;
+    maskRequired: boolean;
+    outdoorExercise: 'Safe' | 'Moderate' | 'Avoid' | 'Hazardous';
+  };
+}
+
+export type AlertSeverity = 'green' | 'yellow' | 'orange' | 'red';
+export type AlertCategory =
+  | 'Heavy Rainfall / Flood'
+  | 'Severe Heatwave'
+  | 'Squall & Gale Winds'
+  | 'Hazardous Air Quality'
+  | 'Thunderstorm / Lightning'
+  | 'Standard Advisory';
+
+export interface SevereAlert {
+  id: string;
+  severity: AlertSeverity;
+  category: AlertCategory;
+  title: string;
+  description: string;
+  instruction: string;
+  issuedAt: string;
+  color: string;
+}
+
 export interface WeatherDataPayload {
   location: {
     name: string;
@@ -116,6 +163,8 @@ export interface WeatherDataPayload {
   hourly: HourlyForecastItem[];
   daily: DailyForecastItem[];
   prediction: WeatherPrediction;
+  airQuality?: AirQualityData;
+  alerts?: SevereAlert[];
   dataSource: {
     name: string;
     model: string;
@@ -138,6 +187,8 @@ export interface StateComparisonItem {
   riskScore: number;
   riskLevel: RiskLevel;
   condition: WeatherCondition;
+  aqi?: number;
   loading?: boolean;
   error?: string;
 }
+

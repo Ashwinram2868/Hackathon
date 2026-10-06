@@ -17,10 +17,25 @@ import {
 interface CurrentWeatherCardProps {
   data: WeatherDataPayload;
   selectedStateName?: string;
+  tempUnit?: 'C' | 'F';
+  onOpenAQI?: () => void;
 }
 
-export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, selectedStateName }) => {
-  const { current, location, prediction, lastUpdated, fromCache } = data;
+export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({
+  data,
+  selectedStateName,
+  tempUnit = 'C',
+  onOpenAQI,
+}) => {
+  const { current, location, prediction, lastUpdated, fromCache, airQuality } = data;
+
+  const formatTemp = (val: number) => {
+    if (tempUnit === 'F') return `${Math.round(val * 1.8 + 32)}°F`;
+    return `${val}°C`;
+  };
+
+  const displayTemp = tempUnit === 'F' ? Math.round(current.temperature * 1.8 + 32) : current.temperature;
+  const displayFeels = tempUnit === 'F' ? Math.round(current.feelsLike * 1.8 + 32) : current.feelsLike;
 
   return (
     <div className="glass-card rounded-2xl p-5 md:p-6 border border-slate-800 shadow-xl relative overflow-hidden">
@@ -30,7 +45,7 @@ export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, se
       {/* Header: Location & Observed Label */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4 mb-5">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight text-white">{location.name}</h2>
             {location.state && (
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-medium">
@@ -42,6 +57,24 @@ export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, se
                 Cached
               </span>
             )}
+
+            {/* v2 AQI Badge Shortcut */}
+            {airQuality && (
+              <button
+                onClick={onOpenAQI}
+                className="text-xs px-2.5 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5 transition-transform hover:scale-105"
+                style={{
+                  backgroundColor: `${airQuality.color}20`,
+                  color: airQuality.color,
+                  border: `1px solid ${airQuality.color}50`,
+                }}
+                title="View full Air Quality & Particulate breakdown"
+              >
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: airQuality.color }}></span>
+                <span>AQI {airQuality.aqi}</span>
+                <span className="text-[10px] opacity-80 hidden sm:inline">({airQuality.category})</span>
+              </button>
+            )}
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Coordinates: {location.latitude.toFixed(2)}°N, {location.longitude.toFixed(2)}°E • Timezone: {location.timezone}
@@ -52,7 +85,7 @@ export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, se
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            LIVE OBSERVED DATA
+            LIVE OBSERVED
           </span>
           <span className="text-xs text-slate-500 hidden sm:inline">
             as of {lastUpdated}
@@ -70,14 +103,14 @@ export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, se
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-5xl md:text-6xl font-extrabold tracking-tight text-white">
-                {current.temperature}°
+                {displayTemp}°
               </span>
-              <span className="text-2xl font-semibold text-slate-400">C</span>
+              <span className="text-2xl font-semibold text-slate-400">{tempUnit}</span>
             </div>
             <div className="mt-1">
               <p className="text-lg font-semibold text-slate-200">{current.condition.label}</p>
               <p className="text-xs text-slate-400">
-                Feels like <strong className="text-slate-200">{current.feelsLike}°C</strong> • {current.condition.description}
+                Feels like <strong className="text-slate-200">{displayFeels}°{tempUnit}</strong> • {current.condition.description}
               </p>
             </div>
           </div>
@@ -165,7 +198,7 @@ export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, se
           </div>
           <div className="hidden md:flex items-center gap-2">
             <Thermometer className="w-4 h-4 text-amber-500" />
-            <span>24h Avg Temp: <strong className="text-slate-200">{prediction.metricsSummary.avgTemp24h}°C</strong></span>
+            <span>24h Avg Temp: <strong className="text-slate-200">{formatTemp(prediction.metricsSummary.avgTemp24h)}</strong></span>
           </div>
         </div>
 
@@ -176,3 +209,4 @@ export const CurrentWeatherCard: React.FC<CurrentWeatherCardProps> = ({ data, se
     </div>
   );
 };
+
